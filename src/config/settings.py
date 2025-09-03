@@ -6,12 +6,13 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-^zx7a6o7a!=ixw3bse4m&-gjwg2hd*#bs3@lh$dzm+g_x1n1*@"
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-insecure")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DJANGO_DEBUG", "0") == "1"
 
-ALLOWED_HOSTS = []
+# Hosts are comma-separated: "your.domain.com,localhost,127.0.0.1"
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
 
 
 # Application definition
@@ -24,6 +25,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
 
     'rest_framework',
+    'drf_spectacular',
     "accounts",
     'links'
 ]
@@ -60,11 +62,15 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 # Database
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("POSTGRES_DB", "urlshortener"),
+            "USER": os.getenv("POSTGRES_USER", "urlshortener"),
+            "PASSWORD": os.getenv("POSTGRES_PASSWORD", "urlshortener"),
+            "HOST": os.getenv("POSTGRES_HOST", "db"),
+            "PORT": os.getenv("POSTGRES_PORT", "5432"),
+        }
     }
-}
 
 
 # Password validation
@@ -107,15 +113,53 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = 'accounts.User'
 
 REST_FRAMEWORK = {
-'DEFAULT_AUTHENTICATION_CLASSES': (
-'rest_framework_simplejwt.authentication.JWTAuthentication',
-),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+    'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 10,
 }
 
 
 SIMPLE_JWT = {
-'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(os.environ.get('ACCESS_TOKEN_LIFETIME_MIN', 60))),
-'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.environ.get('REFRESH_TOKEN_LIFETIME_DAYS', 7))),
+    'ACCESS_TOKEN_LIFETIME': timedelta(
+        minutes=int(os.environ.get('ACCESS_TOKEN_LIFETIME_MIN', 60))
+        ),
+    'REFRESH_TOKEN_LIFETIME': timedelta(
+        days=int(os.environ.get('REFRESH_TOKEN_LIFETIME_DAYS', 7))
+        ),
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "URL Shortener API",
+    "DESCRIPTION": "Shorten URLs with expiration and analytics.",
+    "VERSION": "1.0.0",
 }
 
 BASE_URL = os.environ.get("BASE_URL", "http://localhost:8000/")
+
+CACHE_DEFAULT_TTL = int(os.environ.get("CACHE_DEFAULT_TTL", 604800)) # 7d
+EXPIRED_TOMBSTONE_TTL = int(os.environ.get("EXPIRED_TOMBSTONE_TTL", 21600)) # 6h
+DAILY_BUCKET_TTL = int(os.environ.get("DAILY_BUCKET_TTL", 7776000)) # 90d
+
+# --- Cache (Redis) ---
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+
+CACHES = {
+    "default": {
+    "BACKEND": "django_redis.cache.RedisCache",
+    "LOCATION": REDIS_URL,
+    "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+    "KEY_PREFIX": "urlshort",
+    }
+}
+
+# --- Celery ---
+CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", REDIS_URL)
+CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", REDIS_URL)
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TIMEZONE = locals().get("TIME_ZONE", "UTC")
+CELERY_ENABLE_UTC = True
