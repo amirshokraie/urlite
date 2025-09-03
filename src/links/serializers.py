@@ -1,12 +1,10 @@
-from urllib.parse import urljoin
-from django.conf import settings
 from django.utils import timezone
 from rest_framework import serializers
-from rest_framework.reverse import reverse
 from .models import Link
+from .mixins import ShortURLMixin
 
 
-class LinkCreateSerializer(serializers.ModelSerializer):
+class LinkCreateSerializer(ShortURLMixin, serializers.ModelSerializer):
     original_url = serializers.URLField(write_only=True, max_length=2048)
     expire_at = serializers.DateTimeField(required=False, allow_null=True)
     short_url = serializers.SerializerMethodField(read_only=True)
@@ -26,16 +24,4 @@ class LinkCreateSerializer(serializers.ModelSerializer):
         created_by = user if (user and user.is_authenticated) else None
         return Link.objects.create(created_by=created_by, **validated_data)
 
-    def get_short_url(self, obj: Link) -> str:
-        request = self.context.get("request")
-        # absolute when request is present
-        absolute_or_path = reverse("links:redirect", kwargs={"code": obj.code}, request=request)
-        if request:
-            return absolute_or_path
-        # fallback to BASE_URL (or return relative path)
-        base = getattr(settings, "BASE_URL", "").rstrip("/")
-        return (
-            urljoin(base + "/", absolute_or_path.lstrip("/")) 
-            if base 
-            else absolute_or_path
-        )
+    
