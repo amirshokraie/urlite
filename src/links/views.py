@@ -2,9 +2,10 @@ from django.utils import timezone
 from django.shortcuts import redirect, get_object_or_404
 from django.views import View
 from django.http import HttpResponseGone, Http404
-from rest_framework.generics import CreateAPIView, ListAPIView
+from rest_framework.generics import CreateAPIView, ListAPIView, GenericAPIView
 from django.views import View
 from rest_framework import permissions
+from rest_framework.response import Response
 from rest_framework import status
 from .serializers import LinkCreateSerializer, LinkListSerializer
 from .models import Link
@@ -63,3 +64,11 @@ class UserLinkListAPIView(ListAPIView):
             .only("original_url", "expire_at", "created_at")
             .order_by("-created_at")
         )
+
+class AnalyticsAPIView(GenericAPIView):
+    def get(self, request, code=None):
+        counts = LinkAnalytics.get_counts(code)
+        data = {"code": code, **counts}
+        if request.query_params.get('daily') == 'true':
+            data["daily"] = LinkAnalytics.get_daily(code)
+        return Response(data)
