@@ -29,7 +29,7 @@ class LinkCreateSerializer(serializers.ModelSerializer):
     def get_short_url(self, obj: Link) -> str:
         request = self.context.get("request")
         # absolute when request is present
-        absolute_or_path = reverse("redirect", kwargs={"code": obj.code}, request=request)
+        absolute_or_path = reverse("links:redirect", kwargs={"code": obj.code}, request=request)
         if request:
             return absolute_or_path
         # fallback to BASE_URL (or return relative path)
