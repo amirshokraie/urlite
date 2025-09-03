@@ -2,11 +2,11 @@ from django.utils import timezone
 from django.shortcuts import redirect, get_object_or_404
 from django.views import View
 from django.http import HttpResponseGone, Http404
-from rest_framework.generics import CreateAPIView
+from rest_framework.generics import CreateAPIView, ListAPIView
 from django.views import View
-from rest_framework.response import Response
+from rest_framework import permissions
 from rest_framework import status
-from .serializers import LinkCreateSerializer
+from .serializers import LinkCreateSerializer, LinkListSerializer
 from .models import Link
 from .services.base62 import decoder as _decode_base64
 
@@ -29,3 +29,14 @@ class RedirectView(View):
         link_id = _decode_base64(code)
         qs = Link.objects.only("original_url", "expire_at")
         return get_object_or_404(qs, pk=link_id)
+    
+class UserLinkListView(ListAPIView):
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = LinkListSerializer
+
+    def get_queryset(self):
+        return (
+            Link.objects.filter(created_by=self.request.user)
+            .only("original_url", "expire_at", "created_at")
+            .order_by("-created_at")
+        )
