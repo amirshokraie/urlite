@@ -1,15 +1,34 @@
-from django.shortcuts import redirect
+from django.utils import timezone
+from django.shortcuts import redirect, get_object_or_404
+from django.views import View
+from django.http import HttpResponseGone, Http404
 from rest_framework.generics import CreateAPIView
-from rest_framework.views import APIView
+from django.views import View
 from rest_framework.response import Response
 from rest_framework import status
 from .serializers import LinkCreateSerializer
 from .models import Link
+from .services.base62 import decoder as _decode_base64
 
 
 class LinkCreateAPIView( CreateAPIView):
     serializer_class = LinkCreateSerializer
 
-class RedirectAPIView(APIView):
+class RedirectView(View):
     def get(self, request, code, **kw):
-        pass
+        
+        # DB fallback
+        try:
+            link_id = _decode_base64(code)
+            link = Link.objects.only(
+                "original_url", "expire_at", "code"
+                ).get(pk=link_id)
+            
+        except Link.DoesNotExist:
+            raise Http404("Link not found")
+
+
+        if link.is_expired:
+            return HttpResponseGone("Link expired")
+        
+        return redirect(link.original_url)
