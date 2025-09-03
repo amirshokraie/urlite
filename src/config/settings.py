@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from datetime import timedelta
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -166,3 +167,12 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TIMEZONE = locals().get("TIME_ZONE", "UTC")
 CELERY_ENABLE_UTC = True
+
+CELERY_BEAT_SCHEDULE = {
+    "purge-expired-links-hourly": {
+        "task": "links.tasks.purge_expired_links",
+        "schedule": crontab(minute=0, hour=0), # Daily at 00:00
+        "options": {"queue": "maintenance"},
+        "kwargs": {"batch_size": 2000},
+    },
+}
