@@ -25,3 +25,9 @@ class LinkCreateSerializer(ShortURLMixin, serializers.ModelSerializer):
         return Link.objects.create(created_by=created_by, **validated_data)
 
     
+class LinkListSerializer(ShortURLMixin, serializers.ModelSerializer):
+    short_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Link
+        fields = ("original_url", "expire_at", "created_at", "short_url")
