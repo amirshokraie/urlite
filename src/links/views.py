@@ -18,17 +18,14 @@ class RedirectView(View):
     def get(self, request, code, **kw):
         
         # DB fallback
-        try:
-            link_id = _decode_base64(code)
-            link = Link.objects.only(
-                "original_url", "expire_at", "code"
-                ).get(pk=link_id)
-            
-        except Link.DoesNotExist:
-            raise Http404("Link not found")
-
-
+        link = self._get_link_or_404(code)
         if link.is_expired:
             return HttpResponseGone("Link expired")
         
         return redirect(link.original_url)
+    
+    @staticmethod
+    def _get_link_or_404(code: str) -> Link:
+        link_id = _decode_base64(code)
+        qs = Link.objects.only("original_url", "expire_at")
+        return get_object_or_404(qs, pk=link_id)
