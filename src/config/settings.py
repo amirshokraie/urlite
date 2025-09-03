@@ -116,3 +116,5 @@ SIMPLE_JWT = {
 'ACCESS_TOKEN_LIFETIME': timedelta(minutes=int(os.environ.get('ACCESS_TOKEN_LIFETIME_MIN', 60))),
 'REFRESH_TOKEN_LIFETIME': timedelta(days=int(os.environ.get('REFRESH_TOKEN_LIFETIME_DAYS', 7))),
 }
+
+BASE_URL = os.environ.get("BASE_URL", "http://localhost:8000/")
