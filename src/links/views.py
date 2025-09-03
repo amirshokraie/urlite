@@ -30,7 +30,7 @@ class RedirectView(View):
         qs = Link.objects.only("original_url", "expire_at")
         return get_object_or_404(qs, pk=link_id)
     
-class UserLinkListView(ListAPIView):
+class UserLinkListAPIView(ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = LinkListSerializer
 
