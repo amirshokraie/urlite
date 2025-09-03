@@ -90,3 +90,12 @@ class LinkCache:
             r.delete(self._key_url(code))
         except RedisError:
             pass
+
+
+_default_link_cache = LinkCache()
+
+cache_url = _default_link_cache.cache_url
+get_cached_url = _default_link_cache.get_cached_url
+mark_expired = _default_link_cache.mark_expired
+is_tombstoned = _default_link_cache.is_tombstoned
+uncache_url = _default_link_cache.uncache_url
