@@ -1,0 +1,102 @@
+name: urlshortener
+
+services:
+  web:
+    build:
+      context: ./src
+      dockerfile: Dockerfile
+    container_name: urlshortener-web
+    env_file:
+      - .env
+    environment:
+      # Compose builds DATABASE_URL from Postgres vars in .env
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      celery:
+        condition: service_started
+    ports:
+      - "${WEB_PORT}:8000"
+    command: ["/bin/sh", "-c", "/app/entrypoint.sh"]
+    restart: unless-stopped
+    networks: [app]
+
+  db:
+    image: postgres:16-alpine
+    container_name: urlshortener-db
+    env_file:
+      - .env
+    environment:
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB} -h 127.0.0.1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    networks: [app]
+
+  redis:
+    image: redis:7-alpine
+    container_name: urlshortener-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    networks: [app]
+
+  celery:
+    build:
+      context: ./src
+      dockerfile: Dockerfile
+    container_name: urlshortener-celery
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["celery", "-A", "config", "worker", "-l", "info"]
+    restart: unless-stopped
+    networks: [app]
+
+  celery-beat:
+    build:
+      context: ./src
+      dockerfile: Dockerfile
+    container_name: urlshortener-celery-beat
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      celery:
+        condition: service_started
+    command: ["celery", "-A", "config", "beat", "-l", "info"]
+    restart: unless-stopped
+    networks: [app]
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  app:
+    driver: bridge
